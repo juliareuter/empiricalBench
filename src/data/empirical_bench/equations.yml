@@ -112,7 +112,7 @@ problems:
       callable: mp.sqrt(k * a**3)
       args: [a]
       constants:
-        k: None
+        k: 2 #was originally None
       ranges:
         a: [0.38, 9.5]
       size: 10
@@ -176,9 +176,9 @@ problems:
       nu: frequency, Hz
       T: temperature
     constants:
-      h: 6.62607004e-34  # J s
-      k_B: 1.38064852e-23  # J/K
-      c: 299792458  # m/s
+      h: 6.62607004e-9  # J s #e-34
+      k_B: 1.38064852e-3  # J/K #e-23
+      c: 299.792458  # m/s # 299792458
     citations:
       original: planckTheoryHeatRadiation1914
     data_generator:
@@ -186,12 +186,12 @@ problems:
       callable: 2 * h * nu**3 / (c**2) * (1 / (mp.exp(h * nu / (k_B * T)) - 1))
       args: [nu, T]
       constants:
-        h: 6.62607004e-34
-        k_B: 1.38064852e-23
-        c: 299792458
+        h: 5.3 # 6.62607004e-9 #e-34
+        k_B: 8.0 # 1.38064852e-3 #e-23
+        c: 10.5 # 299.792458 #299792458
       ranges:
-        nu: [1e9, 1e16, 'log']
-        T: [100, 6000, 'log']
+        nu: [1, 40, 'log'] #1e9, 1e16
+        T: [1, 20, 'log'] #100, 6000
       size: 100
       noise:
         scale: None  # Use no scale for just 10% noise.
@@ -417,7 +417,7 @@ problems:
     variables:
       P: pressure
       target: pressure
-      n: number density
+      n: number density #added by me: m^-3
       T: temperature
       V: volume
     constants:

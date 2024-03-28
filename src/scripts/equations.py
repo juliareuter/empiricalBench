@@ -7,10 +7,11 @@ import numpy as np
 import mpmath as mp
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-
+import sympy
+import pandas as pd 
 from paths import data as data_path, figures as fig_path
 from benchmark import load, gen_dataset
-
+from denoising import denoise
 ebench_path = data_path / "empirical_bench"
 
 # Matplotlib settings:
@@ -49,8 +50,8 @@ def create_benchmark_figure(problems):
             continue
         if key in skipped_problems:
             continue
-        X, y = gen_dataset(data, key)
-
+        X, y = gen_dataset(data, key, scale_dataset=False)
+        
         ax[i].set_title(f'{name}\n${problem["equation"]["original"]}$')
         # color = "tab:blue"
         cmap = plt.get_cmap("viridis")
@@ -139,7 +140,7 @@ def create_benchmark_figure(problems):
         i += 1
 
     plt.tight_layout()
-    plt.savefig(fig_path / "benchmark_data.pdf")
+    plt.savefig(fig_path / "benchmark_data_generated_005noise.pdf")
 
 
 if __name__ == "__main__":

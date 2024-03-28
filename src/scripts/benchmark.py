@@ -10,9 +10,10 @@ from typing import Dict
 import pandas as pd
 from hashlib import sha256
 import ast
+import sympy 
 
 from paths import data as data_path
-
+from denoising import denoise
 ebench_path = data_path / "empirical_bench"
 
 
@@ -35,7 +36,7 @@ def exec_then_eval(code, rstate):
     return eval(compile(last, "<string>", mode="eval"), _globals, _locals)
 
 
-def gen_dataset_using_generator(problem, rstate):
+def gen_dataset_using_generator(problem, rstate, noise=True):
     data_generator = problem["data_generator"]
 
     args = data_generator["args"]
@@ -86,35 +87,41 @@ def gen_dataset_using_generator(problem, rstate):
     # We do the computation using mpmath for precision.
     y = [callable(**{k: mp.mpf(v[i]) for k, v in X.items()}) for i in range(size)]
     y = np.array(y)
+    if noise == False:
+        return pd.DataFrame(X), y
 
-    assert "noise" in data_generator
-    if "noise" in data_generator:
-        if str(data_generator["noise"]["scale"]) == "None":
-            # Default if nothing else is provided.
-            scale = 0.1
-        else:
-            scale = float(data_generator["noise"]["scale"])
+    # assert "noise" in data_generator
+    # if "noise" in data_generator:
+    #     if str(data_generator["noise"]["scale"]) == "None":
+    #         # Default if nothing else is provided.
+    #         scale = 0.1
+    #     else:
+    #         scale = float(data_generator["noise"]["scale"])
 
-        if str(data_generator["noise"]["type"]) == "None":
-            noise_type = "stdev"
-        else:
-            noise_type = data_generator["noise"]["type"]
+    #     if str(data_generator["noise"]["type"]) == "None":
+    #         noise_type = "stdev"
+    #     else:
+    #         noise_type = data_generator["noise"]["type"]
 
-        if "var" not in data_generator["noise"]:
-            if noise_type == "absolute":
-                y += rstate.randn(size) * scale
-            elif noise_type == "relative":
-                y += rstate.randn(size) * y * scale
-            elif noise_type == "stdev":
-                y += rstate.randn(size) * np.std(y) * scale
-        else:
-            col = data_generator["noise"]["var"]
-            if noise_type == "absolute":
-                X[col] += rstate.randn(size) * scale
-            elif noise_type == "relative":
-                X[col] += rstate.randn(size) * X[col] * scale
-            elif noise_type == "stdev":
-                X[col] += rstate.randn(size) * np.std(X[col]) * scale
+    #     if "var" not in data_generator["noise"]:
+    #         if noise_type == "absolute":
+    #             y += rstate.randn(size) * scale
+    #         elif noise_type == "relative":
+    #             y += rstate.randn(size) * y * scale
+    #         elif noise_type == "stdev":
+    #             y += rstate.randn(size) * np.std(y) * scale
+    #     else:
+    #         col = data_generator["noise"]["var"]
+    #         if noise_type == "absolute":
+    #             X[col] += rstate.randn(size) * scale
+    #         elif noise_type == "relative":
+    #             X[col] += rstate.randn(size) * X[col] * scale
+    #         elif noise_type == "stdev":
+    #             X[col] += rstate.randn(size) * np.std(X[col]) * scale
+
+    scale = 0.03
+    y += rstate.randn(size) * y * scale
+
 
     return pd.DataFrame(X), y
 
@@ -168,33 +175,70 @@ def get_problem(data, key):
 
 def gen_dataset(data, key, scale_dataset=False, return_info=False):
     problem, _ = get_problem(data, key)
-
     seed = np.frombuffer(sha256(key.encode()).digest(), dtype=np.uint32)
     rstate = np.random.RandomState(seed)
-
+    print(key)
     if "use" in problem:
         dataset_key = problem["use"]
     else:
         dataset_key = "data" if "data" in problem else "data_generator"
 
-    if dataset_key in ["data", "alternate_data"]:
+    # if dataset_key in ["data", "alternate_data"]:
+    #     X, y = gen_dataset_using_original(problem, dataset_key)
+    #     log_scaling = False
+    #     if (
+    #         scale_dataset
+    #         and "plot" in problem
+    #         and "yscale" in problem["plot"]
+    #         and problem["plot"]["yscale"] == "log"
+    #     ):
+    #         # See if problem y-axis is log-scaled, then do it on the data.
+    #         # This is to allow the loss to fit all ranges of data.
+    #         # We do NOT scale the input data - algorithms must deal with this.
+    #         y = np.array([mp.log(yi) for yi in y])
+    #         log_scaling = True
+    #     #X, y = denoise(X, y)
+    #     X_ = X 
+    #     X_['y'] = sympy.sympify(y)
+    #     #X_.to_csv(f'../data/datasets/{key}_original.csv', index = False)
+    if key != "bode":
+        dataset_key == "data_generator"
+        X, y = gen_dataset_using_generator(problem, rstate, noise = True)
+        log_scaling = False
+        """if (
+            scale_dataset
+            and "plot" in problem
+            and "yscale" in problem["plot"]
+            and problem["plot"]["yscale"] == "log"
+        ):
+            # See if problem y-axis is log-scaled, then do it on the data.
+            # This is to allow the loss to fit all ranges of data.
+            # We do NOT scale the input data - algorithms must deal with this.
+            y = np.array([mp.log(yi) for yi in y])
+            log_scaling = True"""
+        #X, y = denoise(X, y)
+        X_ = X 
+        X_['y'] = sympy.sympify(y)
+        
+        X_.to_csv(f'../data/datasets/{key}_generated_003noise.csv', index = False)
+    else:
         X, y = gen_dataset_using_original(problem, dataset_key)
-    elif dataset_key == "data_generator":
-        X, y = gen_dataset_using_generator(problem, rstate)
-
-    log_scaling = False
-    if (
-        scale_dataset
-        and "plot" in problem
-        and "yscale" in problem["plot"]
-        and problem["plot"]["yscale"] == "log"
-    ):
-        # See if problem y-axis is log-scaled, then do it on the data.
-        # This is to allow the loss to fit all ranges of data.
-        # We do NOT scale the input data - algorithms must deal with this.
-        y = np.array([mp.log(yi) for yi in y])
-        log_scaling = True
-
+        log_scaling = False
+        if (
+            scale_dataset
+            and "plot" in problem
+            and "yscale" in problem["plot"]
+            and problem["plot"]["yscale"] == "log"
+        ):
+            # See if problem y-axis is log-scaled, then do it on the data.
+            # This is to allow the loss to fit all ranges of data.
+            # We do NOT scale the input data - algorithms must deal with this.
+            y = np.array([mp.log(yi) for yi in y])
+            log_scaling = True
+        #X, y = denoise(X, y)
+        X_ = X 
+        X_['y'] = sympy.sympify(y)
+        #X_.to_csv(f'../data/datasets/{key}_original.csv', index = False)
     if return_info:
         return X, y, {"log": log_scaling}
     return X, y
